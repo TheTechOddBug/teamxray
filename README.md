@@ -6,13 +6,21 @@ Transform GitHub Copilot into team X-ray vision. Discover the humans behind your
 
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/AndreaGriffiths.teamxray?color=blue&label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=AndreaGriffiths.teamxray)
 
+## What's New in v1.0.5
+
+- 🎨 Redesigned reports with modern UI
+- ⚡ Improved startup performance  
+- 🐛 Bug fixes
+
+See [CHANGELOG](CHANGELOG.md) for full history.
+
 ## Features
 
 - **🔍 File Expert Discovery** – Right-click any file to find who knows it best
 - **🧠 Team Expertise Overview** – AI-powered analysis of communication styles and collaboration patterns  
 - **🎯 Smart Challenge Matching** – Discover who thrives on different types of problems
 - **⚡ MCP Integration** – Uses GitHub's Model Context Protocol for deep repository analysis (optional, falls back to local Git)
-- **🎨 Modern UI** – Webview interface with team insights and expert profiles
+- **🎨 Modern UI** – Beautiful HTML reports with expert cards, management insights, and AI recommendations
 
 ![Team X-Ray Demo](demo.gif)
 
@@ -20,24 +28,15 @@ Transform GitHub Copilot into team X-ray vision. Discover the humans behind your
 
 **From Marketplace:**
 
-- [Install Team X-Ray directly from the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AndreaGriffiths.teamxray)
-
-**Development Version:**
-
 ```bash
-git clone https://github.com/AndreaGriffiths11/teamxray.git
-cd teamxray
-npm install
-npm run compile
-npm install -g @vscode/vsce && vsce package
+ext install AndreaGriffiths.teamxray
 ```
 
-**Install the .vsix file:**
-- From terminal: `code --install-extension teamxray-0.0.1.vsix`
-- VS Code UI: Extensions → "..." → "Install from VSIX..." → Select the file
-- Drag & drop: Drag the `.vsix` file into VS Code
+Or [install directly from the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AndreaGriffiths.teamxray)
 
-**Optional: Set up GitHub Token for advanced features**
+**Optional: Set up GitHub Token for AI-powered insights**
+
+Run `Team X-Ray: Set GitHub Token` from the Command Palette, or:
 
 ```bash
 export GITHUB_TOKEN="your_github_token_here"
@@ -45,8 +44,9 @@ export GITHUB_TOKEN="your_github_token_here"
 
 ## Usage
 
-- Right-click files → "Find Subject Matter Expert"
-- Command Palette → "Team X-Ray: Analyze Team Expertise"
+- **Right-click files** → "Team X-Ray: Find Expert for This File"
+- **Command Palette** → "Team X-Ray: Analyze Repository Expertise"
+- **Command Palette** → "Team X-Ray: Show Team Expertise Overview"
 
 ## How It Works
 
@@ -54,33 +54,31 @@ export GITHUB_TOKEN="your_github_token_here"
 - **🤖 AI Analysis** – Uses GitHub Models API (GPT-4o) for human-centered insights (optional, in Preview)
 - **🔌 MCP Integration** – Leverages VS Code's Model Context Protocol with GitHub's official server; falls back to local analysis if unavailable
 
-> **Note:** This extension uses the GitHub Models API, which is currently in Preview. During the Preview period, API usage is free up to a credit limit. If you reach the free credit limit, please switch over to billed usage. 
+> **Note:** This extension uses the GitHub Models API, which is currently in Preview. During the Preview period, API usage is free up to a credit limit.
+
+## Requirements
+
+- VS Code 1.100.0+
+- GitHub repository with commit history
+- GitHub token for AI-powered insights (optional)
 
 ## Development
 
-**Prerequisites:** Node.js 20+, VS Code 1.100.0+, Git repository
+**Prerequisites:** Node.js 20+, Git
 
 ```bash
 git clone https://github.com/AndreaGriffiths11/teamxray.git
 cd teamxray
 npm install
-export GITHUB_TOKEN="your_token"
 npm run compile
 # Press F5 in VS Code to test
 ```
 
-## Requirements
-
-- VS Code 1.100.0+
-- Node.js 20+
-- GitHub repository with commit history
-- GitHub token for enhanced features
-
 ## Coming Soon
 
-- Real-time MCP status monitoring
-- Advanced team collaboration insights
 - Cross-repository expertise aggregation
+- Team health dashboards
+- Slack/Teams integration for expert recommendations
 
 ---
 
