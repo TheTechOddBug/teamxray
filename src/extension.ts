@@ -12,8 +12,12 @@ import { Validator } from './utils/validation';
 // This method is called when the extension is activated
 // extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    // Create output channel for logging
-    const outputChannel = vscode.window.createOutputChannel('Team X-Ray');
+    try {
+        console.log('Team X-Ray extension is activating...');
+
+        // Create output channel for logging
+        const outputChannel = vscode.window.createOutputChannel('Team X-Ray');
+        outputChannel.appendLine('Team X-Ray extension starting...');
     
     // Initialize utilities
     ErrorHandler.initialize(outputChannel);
@@ -316,24 +320,33 @@ Specializations: ${(expert.specializations || []).join(', ')}`;
         vscode.commands.executeCommand('setContext', 'teamxray.hasAnalysis', true);
     }
 
-    // Show welcome message for first-time users
-    const hasShownWelcome = context.globalState.get('teamxray.hasShownWelcome', false);
-    if (!hasShownWelcome) {
-        vscode.window.showInformationMessage(
-            'Welcome to MCP Team X-Ray! Analyze your team\'s expertise to find the right experts for any code.',
-            'Analyze Repository',
-            'Learn More'
-        ).then(choice => {
-            switch (choice) {
-                case 'Analyze Repository':
-                    vscode.commands.executeCommand('teamxray.analyzeRepository');
-                    break;
-                case 'Learn More':
-                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/AndreaGriffiths11/team-xray'));
-                    break;
-            }
-        });
-        context.globalState.update('teamxray.hasShownWelcome', true);
+    // Show welcome message for first-time users (temporarily disabled for debugging)
+    // const hasShownWelcome = context.globalState.get('teamxray.hasShownWelcome', false);
+    // if (!hasShownWelcome) {
+    //     vscode.window.showInformationMessage(
+    //         'Welcome to MCP Team X-Ray! Analyze your team\'s expertise to find the right experts for any code.',
+    //         'Analyze Repository',
+    //         'Learn More'
+    //     ).then(choice => {
+    //         switch (choice) {
+    //             case 'Analyze Repository':
+    //                 vscode.commands.executeCommand('teamxray.analyzeRepository');
+    //                 break;
+    //             case 'Learn More':
+    //                 vscode.env.openExternal(vscode.Uri.parse('https://github.com/AndreaGriffiths11/team-xray'));
+    //                 break;
+    //         }
+    //     });
+    //     context.globalState.update('teamxray.hasShownWelcome', true);
+    // }
+
+    console.log('Team X-Ray extension activated successfully');
+    outputChannel.appendLine('✅ Team X-Ray extension activated successfully');
+
+    } catch (error) {
+        console.error('Team X-Ray extension activation failed:', error);
+        vscode.window.showErrorMessage(`Team X-Ray failed to activate: ${error}`);
+        throw error;
     }
 }
 
