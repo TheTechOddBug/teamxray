@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2025-11-24
+
+### ✨ UI Improvements
+- **Redesigned HTML Reports**: Modern, professional report design with refined color palette
+- **Expert Cards**: Clean layout with hover effects, pill-shaped role badges, and tag-style specializations
+- **Management Insights**: Color-coded cards with top borders (Red/Risk, Green/Opportunity)
+- **AI Section**: Distinct dark theme for strategic insights
+- **Typography**: Updated to Inter font stack for better readability
+
+### 🧪 Testing & Quality
+- **Evalite Integration**: Added eval-driven development framework for AI output testing
+- **Custom Scorers**: Expert identification and collaboration pattern detection with 90%+ accuracy
+- **GitHub Models Support**: Configured evalite to use GitHub Models API instead of OpenAI
+
+### 🐛 Bug Fixes
+- Fixed duplicate function definitions in validation.ts causing compilation errors
+- Resolved TypeScript/ESLint conflicts in evaluation files
+
 ## [1.0.0] - 2025-01-18
 
 ### 🎉 Initial Release
