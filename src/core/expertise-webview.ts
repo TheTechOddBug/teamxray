@@ -73,7 +73,7 @@ export class ExpertiseWebviewProvider {
     }
 
     /**
-     * Gets expert recent activity via MCP
+     * Gets expert recent activity from local git history.
      */
     private async getExpertActivity(expert: Expert): Promise<void> {
         // Trigger the extension command for getting expert activity

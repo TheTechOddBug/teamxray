@@ -116,6 +116,53 @@ export class GitService {
     }
 
     /**
+     * Parse git log output where each commit is followed by a list of touched files.
+     */
+    private parseCommitOutputWithFiles(output: string): GitCommit[] {
+        return output
+            .split('__TEAMXRAY_COMMIT__')
+            .map(block => block.trim())
+            .filter(block => block.length > 0)
+            .map(block => {
+                const [metadataLine, ...fileLines] = block
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+
+                if (!metadataLine) {
+                    return null;
+                }
+
+                const parts = metadataLine.split('|');
+                if (parts.length < 5) {
+                    return null;
+                }
+
+                const author: GitAuthor = {
+                    name: parts[1],
+                    email: parts[2]
+                };
+
+                return {
+                    sha: parts[0],
+                    author,
+                    message: parts.slice(4).join('|'),
+                    date: parts[3],
+                    files: fileLines,
+                };
+            })
+            .filter((commit): commit is GitCommit => commit !== null);
+    }
+
+    private normalizeGitPath(filePath: string): string {
+        const normalizedPath = path.isAbsolute(filePath)
+            ? path.relative(this.repoPath, filePath)
+            : filePath;
+
+        return normalizedPath.split(path.sep).join('/');
+    }
+
+    /**
      * Get commits from the repository
      * @param limit - Maximum number of commits to retrieve
      * @returns Array of git commits
@@ -274,6 +321,30 @@ export class GitService {
 
         const output = await this.executeGitCommand(args);
         return this.parseCommitOutput(output);
+    }
+
+    /**
+     * Get commits that touched a specific file, including per-commit file lists.
+     * @param filePath - Absolute or repository-relative file path
+     * @param limit - Maximum number of commits
+     * @returns Array of commits affecting that file
+     */
+    async getCommitsForFile(filePath: string, limit: number = 100): Promise<GitCommit[]> {
+        const normalizedPath = this.normalizeGitPath(filePath);
+        const args = [
+            'log',
+            '--follow',
+            '--name-only',
+            '--pretty=format:__TEAMXRAY_COMMIT__%n%H|%an|%ae|%ad|%s',
+            '--date=iso',
+            '-n',
+            String(Math.max(1, Math.min(limit, 1000))),
+            '--',
+            normalizedPath,
+        ];
+
+        const output = await this.executeGitCommand(args);
+        return this.parseCommitOutputWithFiles(output);
     }
 
     /**
