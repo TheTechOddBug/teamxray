@@ -192,6 +192,15 @@ describe('CopilotService', () => {
             expect(result.specializations).toEqual(['TypeScript', 'React']);
             expect(result.workloadIndicator).toBe('balanced');
             expect(result.riskFactors).toEqual(['key person risk']);
+            expect(result.isBot).toBe(false);
+        });
+
+        it('flags bot experts from GitHub bot identities', () => {
+            const result = mapExpert({
+                name: 'dependabot[bot]',
+                email: '49699333+dependabot[bot]@users.noreply.github.com',
+            });
+            expect(result.isBot).toBe(true);
         });
 
         it('provides defaults for missing fields', () => {
@@ -203,6 +212,7 @@ describe('CopilotService', () => {
             expect(result.specializations).toEqual([]);
             expect(result.communicationStyle).toBe('technical');
             expect(result.teamRole).toBe('contributor');
+            expect(result.isBot).toBe(false);
         });
     });
 
@@ -218,6 +228,26 @@ describe('CopilotService', () => {
             expect(result.experts[0].expertise).toBeCloseTo(30 / 500, 2);
             expect(result.insights[0].type).toBe('gap');
             expect(result.insights[0].title).toContain('incomplete');
+        });
+
+        it('marks bot contributors in fallback expert profiles', () => {
+            const data = makeRepoData({
+                contributors: [
+                    {
+                        name: 'github-actions[bot]',
+                        email: '41898282+github-actions[bot]@users.noreply.github.com',
+                        commits: 5,
+                        additions: 0,
+                        deletions: 0,
+                        firstCommit: '2025-01-01',
+                        lastCommit: '2025-05-01',
+                    },
+                ],
+            });
+            const stats = makeStats({ totalCommits: 5 });
+            const result = getPrivate(service).buildMinimalAnalysis(data, stats);
+            expect(result.experts).toHaveLength(1);
+            expect(result.experts[0].isBot).toBe(true);
         });
 
         it('handles empty contributors', () => {
@@ -323,7 +353,8 @@ describe('CopilotService', () => {
             expect(result.experts).toEqual([]);
             expect(result.fileExpertise).toEqual([]);
             expect(result.insights).toEqual([]);
-            expect(result.managementInsights).toEqual([]);
+            expect((result.managementInsights || []).length).toBeGreaterThan(0);
+            expect(result.teamHealthMetrics).toBeDefined();
         });
     });
 

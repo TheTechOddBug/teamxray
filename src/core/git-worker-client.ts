@@ -9,7 +9,7 @@ export class GitWorkerClient {
     private worker: Worker | null = null;
     private nextId = 0;
     private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
-    private static readonly TIMEOUT_MS = 30_000;
+    private static readonly TIMEOUT_MS = 120_000;
 
     private ensureWorker(): Worker {
         if (!this.worker) {
@@ -52,7 +52,11 @@ export class GitWorkerClient {
             const id = this.nextId++;
             const timer = setTimeout(() => {
                 this.pending.delete(id);
-                reject(new Error('Worker timeout'));
+                if (this.worker) {
+                    void this.worker.terminate();
+                    this.worker = null;
+                }
+                reject(new Error('Worker timeout while running git operation'));
             }, GitWorkerClient.TIMEOUT_MS);
             this.pending.set(id, { resolve, reject, timer });
             this.ensureWorker().postMessage({ ...msg, id });

@@ -13,7 +13,9 @@ const execFileAsync = promisify(execFile);
  */
 export class GitService {
     private readonly GIT_TIMEOUT_MS = 30000; // 30 seconds
+    private readonly AUTHOR_DATE_TIMEOUT_MS = 5000; // Keep contributor enrichment responsive
     private readonly MAX_BUFFER = 10 * 1024 * 1024; // 10MB
+    private readonly CONTRIBUTOR_DATE_ENRICHMENT_LIMIT = 5;
     private static instanceCache = new Map<string, GitService>();
 
     constructor(
@@ -66,14 +68,14 @@ export class GitService {
      * @param args - Git command arguments as separate array elements
      * @returns Command output
      */
-    private async executeGitCommand(args: string[]): Promise<string> {
+    private async executeGitCommand(args: string[], timeoutMs: number = this.GIT_TIMEOUT_MS): Promise<string> {
         try {
             this.outputChannel?.appendLine(`Executing: git ${args.join(' ')}`);
 
             // Use execFile instead of exec - doesn't invoke shell, prevents command injection
             const { stdout } = await execFileAsync('git', args, {
                 cwd: this.repoPath,
-                timeout: this.GIT_TIMEOUT_MS,
+                timeout: timeoutMs,
                 maxBuffer: this.MAX_BUFFER
             });
 
@@ -231,8 +233,8 @@ export class GitService {
             .filter((contributor): contributor is GitContributor => contributor !== null)
             .sort((a, b) => b.commits - a.commits);
 
-        // Get first and last commit dates for top 20 contributors
-        for (const contributor of contributors.slice(0, 20)) {
+        // Get first and last commit dates for top contributors only to keep large repositories responsive
+        for (const contributor of contributors.slice(0, this.CONTRIBUTOR_DATE_ENRICHMENT_LIMIT)) {
             try {
                 const lastCommitDate = await this.getLastCommitDate(contributor.email);
                 if (lastCommitDate) {
@@ -270,7 +272,7 @@ export class GitService {
                 '1'
             ];
 
-            const output = await this.executeGitCommand(args);
+            const output = await this.executeGitCommand(args, this.AUTHOR_DATE_TIMEOUT_MS);
             return output.trim() || null;
         } catch (error) {
             return null;
@@ -294,7 +296,7 @@ export class GitService {
                 '1'
             ];
 
-            const output = await this.executeGitCommand(args);
+            const output = await this.executeGitCommand(args, this.AUTHOR_DATE_TIMEOUT_MS);
             return output.trim() || null;
         } catch (error) {
             return null;

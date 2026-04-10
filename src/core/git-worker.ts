@@ -9,7 +9,9 @@ import { promisify } from 'util';
 const execFileAsync = promisify(execFile);
 
 const GIT_TIMEOUT_MS = 30_000;
+const AUTHOR_DATE_TIMEOUT_MS = 5_000;
 const MAX_BUFFER = 10 * 1024 * 1024;
+const DATE_ENRICHMENT_LIMIT = 5;
 
 interface WorkerMessage {
     id: number;
@@ -72,17 +74,17 @@ async function getContributors(repoPath: string) {
         .filter(Boolean)
         .sort((a: any, b: any) => b.commits - a.commits);
 
-    // Get first/last commit dates for top 20
-    for (const contrib of contributors.slice(0, 20) as any[]) {
+    // Get first/last commit dates for top contributors only to keep analysis responsive on large repos
+    for (const contrib of contributors.slice(0, DATE_ENRICHMENT_LIMIT) as any[]) {
         try {
             const { stdout: lastOut } = await execFileAsync('git', [
                 'log', `--author=${contrib.email}`, '--pretty=format:%ad', '--date=iso', '-n', '1'
-            ], { cwd: repoPath, timeout: GIT_TIMEOUT_MS, maxBuffer: MAX_BUFFER });
+            ], { cwd: repoPath, timeout: AUTHOR_DATE_TIMEOUT_MS, maxBuffer: MAX_BUFFER });
             contrib.lastCommit = lastOut.trim() || '';
 
             const { stdout: firstOut } = await execFileAsync('git', [
                 'log', `--author=${contrib.email}`, '--pretty=format:%ad', '--date=iso', '--reverse', '-n', '1'
-            ], { cwd: repoPath, timeout: GIT_TIMEOUT_MS, maxBuffer: MAX_BUFFER });
+            ], { cwd: repoPath, timeout: AUTHOR_DATE_TIMEOUT_MS, maxBuffer: MAX_BUFFER });
             contrib.firstCommit = firstOut.trim() || '';
         } catch {
             // continue

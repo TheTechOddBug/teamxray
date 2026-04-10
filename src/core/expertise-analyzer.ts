@@ -15,25 +15,14 @@ import {
 } from '../types/expert';
 import { ErrorHandler } from '../utils/error-handler';
 import { ResourceManager } from '../utils/resource-manager';
+import { detectBotContributor } from '../utils/bot-detection';
+import {
+    buildFallbackManagementInsights,
+    buildFallbackTeamHealthMetrics,
+    normalizeManagementInsights,
+    normalizeTeamHealthMetrics
+} from '../utils/analysis-enrichment';
 import { GitWorkerClient } from './git-worker-client';
-
-function detectBot(name: string, email: string): boolean {
-    const lowerName = name.toLowerCase();
-    const lowerEmail = email.toLowerCase();
-    if (lowerEmail.includes('[bot]@') ||
-        (lowerEmail.includes('noreply@github.com') && lowerName.includes('[bot]')) ||
-        (/^\d+\+(dependabot|copilot|codex|renovate|github-actions)\[bot\]@users\.noreply\.github\.com$/i).test(lowerEmail) ||
-        (lowerEmail.includes('@users.noreply.github.com') && lowerName.includes('[bot]'))) {
-        return true;
-    }
-    if (lowerName.endsWith('[bot]') || lowerName === 'dependabot' || lowerName === 'renovate' || lowerName === 'github-actions') {
-        return true;
-    }
-    if (lowerEmail.includes('noreply@anthropic.com') || lowerEmail.includes('bot@substrate.run') || lowerEmail.includes('claude@users.noreply.github.com')) {
-        return true;
-    }
-    return false;
-}
 
 export interface ExpertiseAnalysis extends AnalysisResult {
     teamDynamics?: TeamDynamics;
@@ -597,6 +586,18 @@ export class ExpertiseAnalyzer {
 
         const mergedExperts = Array.from(expertMap.values())
             .sort((a, b) => b.contributions - a.contributions);
+        const repositoryStats = repositoryData.repositoryStats as RepositoryStats | undefined;
+        const mergedTeamHealthMetrics = normalizeTeamHealthMetrics(
+            chunkResults.find(result => result.teamHealthMetrics)?.teamHealthMetrics,
+            mergedExperts,
+            repositoryStats
+        );
+        const mergedManagementInsights = normalizeManagementInsights(
+            chunkResults.flatMap(result => result.managementInsights || []),
+            mergedExperts,
+            mergedTeamHealthMetrics,
+            repositoryStats
+        );
 
         return {
             repository: repositoryData.repository,
@@ -609,6 +610,8 @@ export class ExpertiseAnalyzer {
             expertProfiles: mergedExperts,
             teamDynamics: chunkResults[0]?.teamDynamics,
             challengeMatching: chunkResults[0]?.challengeMatching,
+            managementInsights: mergedManagementInsights,
+            teamHealthMetrics: mergedTeamHealthMetrics,
             insights: [
                 ...Array.from(new Set(allInsights)).map(insight => 
                     typeof insight === 'string' ? {
@@ -900,7 +903,7 @@ Respond with JSON only (NO markdown, NO explanations):
                     teamRole: contributor.commits > 10 ? 'Regular contributor' : 'Occasional contributor',
                     hiddenStrengths: ['Code review', 'Documentation'],
                     idealChallenges: ['Bug fixes', 'Feature development'],
-                    isBot: detectBot(contributor.name, contributor.email)
+                    isBot: detectBotContributor(contributor.name, contributor.email)
                 }))
                 .sort((a: any, b: any) => b.contributions - a.contributions)
                 .slice(0, 5);
@@ -988,16 +991,59 @@ Respond with JSON only (NO markdown, NO explanations):
             
             const parsed = JSON.parse(jsonContent);
             this.outputChannel.appendLine(`✅ Successfully parsed JSON response`);
+
+            const parsedExperts = Array.isArray(parsed.experts) ? parsed.experts : [];
+            const parsedInsights = Array.isArray(parsed.insights)
+                ? parsed.insights.map((insight: any) =>
+                    typeof insight === 'string' ? {
+                        type: 'opportunity' as const,
+                        title: 'Analysis Insight',
+                        description: insight,
+                        impact: 'medium' as const,
+                        recommendations: []
+                    } : insight
+                )
+                : [];
+            const parsedManagementInsights = Array.isArray(parsed.managementInsights) ? parsed.managementInsights : [];
+
+            const hasStructuredSignal =
+                parsedExperts.length > 0 ||
+                parsedInsights.length > 0 ||
+                parsedManagementInsights.length > 0 ||
+                Boolean(parsed.teamDynamics) ||
+                Boolean(parsed.challengeMatching) ||
+                Boolean(parsed.teamHealth) ||
+                Boolean(parsed.teamHealthMetrics);
+
+            let fallbackAnalysis: ExpertiseAnalysis | null = null;
+            const getFallbackAnalysis = (): ExpertiseAnalysis => {
+                if (!fallbackAnalysis) {
+                    fallbackAnalysis = this.createFallbackAnalysis(repositoryData);
+                }
+                return fallbackAnalysis;
+            };
+
+            if (!hasStructuredSignal) {
+                this.outputChannel.appendLine('⚠️ AI response JSON contained no usable data, switching to fallback analysis');
+                return getFallbackAnalysis();
+            }
             
-            const processedExperts = (parsed.experts || []).map((expert: any, index: number) => {
+            let processedExperts = parsedExperts.map((expert: any, index: number) => {
                 const lastCommit = expert.lastCommit ? new Date(expert.lastCommit) : new Date();
                 const specializations = Array.isArray(expert.specializations) ? expert.specializations : [];
+                const expertiseRaw = typeof expert.expertise === 'number' ? expert.expertise : 0;
+                const normalizedExpertise = expertiseRaw > 0 && expertiseRaw <= 1
+                    ? Math.round(expertiseRaw * 100)
+                    : expertiseRaw;
+                const contributionsValue = typeof expert.contributions === 'number'
+                    ? expert.contributions
+                    : Number.parseInt(expert.contributions, 10);
                 
                 return {
                     name: expert.name || `Expert ${index + 1}`,
                     email: expert.email || 'unknown@example.com',
-                    expertise: typeof expert.expertise === 'number' ? expert.expertise : 0,
-                    contributions: typeof expert.contributions === 'number' ? expert.contributions : 0,
+                    expertise: normalizedExpertise,
+                    contributions: Number.isFinite(contributionsValue) ? contributionsValue : 0,
                     lastCommit,
                     specializations,
                     communicationStyle: expert.communicationStyle || undefined,
@@ -1007,9 +1053,33 @@ Respond with JSON only (NO markdown, NO explanations):
                     workloadIndicator: expert.workloadIndicator || undefined,
                     collaborationStyle: expert.collaborationStyle || undefined,
                     riskFactors: Array.isArray(expert.riskFactors) ? expert.riskFactors : undefined,
-                    isBot: detectBot(expert.name || '', expert.email || '')
+                    isBot: detectBotContributor(expert.name || '', expert.email || '')
                 };
             });
+
+            const meaningfulExpertCount = processedExperts.filter((expert: any) =>
+                expert.name !== 'Unknown' && (expert.contributions > 0 || expert.expertise > 0)
+            ).length;
+            if (meaningfulExpertCount === 0) {
+                this.outputChannel.appendLine('⚠️ AI response did not include usable experts, backfilling from git contributors');
+                processedExperts = getFallbackAnalysis().expertProfiles;
+            }
+
+            const finalInsights = parsedInsights.length > 0
+                ? parsedInsights
+                : getFallbackAnalysis().insights;
+            const repositoryStats = repositoryData.repositoryStats as RepositoryStats | undefined;
+            const finalTeamHealthMetrics = normalizeTeamHealthMetrics(
+                parsed.teamHealth || parsed.teamHealthMetrics,
+                processedExperts,
+                repositoryStats
+            );
+            const finalManagementInsights = normalizeManagementInsights(
+                parsedManagementInsights,
+                processedExperts,
+                finalTeamHealthMetrics,
+                repositoryStats
+            );
 
             return {
                 repository: repositoryData.repository,
@@ -1022,17 +1092,9 @@ Respond with JSON only (NO markdown, NO explanations):
                 expertProfiles: processedExperts,
                 teamDynamics: parsed.teamDynamics || undefined,
                 challengeMatching: parsed.challengeMatching || undefined,
-                managementInsights: parsed.managementInsights || [],
-                teamHealthMetrics: parsed.teamHealth || undefined,
-                insights: (parsed.insights || []).map((insight: any) => 
-                    typeof insight === 'string' ? {
-                        type: 'opportunity' as const,
-                        title: 'Analysis Insight',
-                        description: insight,
-                        impact: 'medium' as const,
-                        recommendations: []
-                    } : insight
-                ),
+                managementInsights: finalManagementInsights,
+                teamHealthMetrics: finalTeamHealthMetrics,
+                insights: finalInsights,
                 stats: {
                     totalFiles: repositoryData.files.length,
                     totalCommits: repositoryData.commits?.length || 0,
@@ -1094,7 +1156,7 @@ Respond with JSON only (NO markdown, NO explanations):
             teamRole: 'Team member',
             hiddenStrengths: ['Code contribution'],
             idealChallenges: ['General development tasks'],
-            isBot: detectBot(contributor.name || '', contributor.email || '')
+            isBot: detectBotContributor(contributor.name || '', contributor.email || '')
         }));
 
         const insights = [
@@ -1140,6 +1202,9 @@ Respond with JSON only (NO markdown, NO explanations):
                 recommendations: ['Configure GitHub Models API for advanced team analysis']
             }
         ].filter(Boolean);
+        const repositoryStats = repositoryData.repositoryStats as RepositoryStats | undefined;
+        const teamHealthMetrics = buildFallbackTeamHealthMetrics(experts, repositoryStats);
+        const managementInsights = buildFallbackManagementInsights(experts, teamHealthMetrics, repositoryStats);
 
         return {
             repository: repositoryData.repository || 'Unknown Repository',
@@ -1159,6 +1224,8 @@ Respond with JSON only (NO markdown, NO explanations):
                 toughProblems: ['Complex analysis requires AI integration'],
                 recommendedExperts: experts.slice(0, 2).map(e => e.name)
             },
+            managementInsights,
+            teamHealthMetrics,
             insights,
             stats: {
                 totalFiles: repositoryData.files?.length || 0,
@@ -1235,20 +1302,30 @@ Respond with JSON only (NO markdown, NO explanations):
     }
 
     private async getLocalGitContributors(): Promise<any[]> {
-        try {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (!workspaceFolder) {
-                return [];
-            }
-
-            const client = this.getOrCreateWorkerClient();
-            const contributors = await client.getContributors(workspaceFolder.uri.fsPath);
-            return contributors;
-
-        } catch (error) {
-            this.outputChannel.appendLine(`⚠️ Failed to get local git contributors: ${error}`);
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
             return [];
         }
+
+        try {
+            const client = this.getOrCreateWorkerClient();
+            const contributors = await client.getContributors(workspaceFolder.uri.fsPath);
+            if (contributors.length > 0) {
+                return contributors;
+            }
+            this.outputChannel.appendLine('⚠️ Git contributor query returned no results, deriving contributors from commit history...');
+        } catch (error) {
+            this.outputChannel.appendLine(`⚠️ Failed to get local git contributors: ${error}`);
+        }
+
+        const commits = await this.getLocalGitCommits();
+        if (commits.length === 0) {
+            return [];
+        }
+
+        const fallbackContributors = this.extractContributorsFromCommits(commits);
+        this.outputChannel.appendLine(`ℹ️ Derived ${fallbackContributors.length} contributors from commit history fallback`);
+        return fallbackContributors;
     }
 
     public dispose(): void {

@@ -26,7 +26,7 @@ export class ExpertiseWebviewProvider {
             }
         );
 
-        panel.webview.html = this.getWebviewContent(analysis);
+        panel.webview.html = this.getWebviewContent(analysis, panel.webview.cspSource);
 
         // Handle messages from the webview
         panel.webview.onDidReceiveMessage(
@@ -140,6 +140,44 @@ export class ExpertiseWebviewProvider {
         } catch {
             return 'Unknown';
         }
+    }
+
+    /**
+     * Creates a stable DOM-safe id for dynamic HTML elements.
+     */
+    private toSafeDomId(value: string): string {
+        const normalized = value
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+        return normalized || 'item';
+    }
+
+    /**
+     * Escapes text for safe use inside HTML attributes.
+     */
+    private escapeHtmlAttribute(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /**
+     * Generates a nonce for webview script execution.
+     */
+    private generateNonce(length: number = 32): string {
+        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let nonce = '';
+
+        for (let i = 0; i < length; i++) {
+            nonce += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+
+        return nonce;
     }
 
     /**
@@ -681,15 +719,14 @@ export class ExpertiseWebviewProvider {
     /**
      * Generates the HTML content for the webview
      */
-    private getWebviewContent(analysis: ExpertiseAnalysis): string {
-        const cspSource = 'vscode-resource:';
-        
+    private getWebviewContent(analysis: ExpertiseAnalysis, cspSource: string): string {
+        const nonce = this.generateNonce();
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} https://github.com https://avatars.githubusercontent.com data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${cspSource} https://github.com https://avatars.githubusercontent.com data:;">
     <title>Team X-Ray Analysis</title>
     <style>
         *{box-sizing:border-box;margin:0;padding:0}
@@ -707,6 +744,7 @@ export class ExpertiseWebviewProvider {
         /* Sections */
         .section{background:#12121a;border:1px solid #1e293b;border-radius:12px;padding:30px;margin-bottom:30px}
         .section h2{color:#e2e8f0;font-size:1.4em;border-bottom:2px solid #1e293b;padding-bottom:10px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;cursor:default}
+        .section h2.collapsible-header{cursor:pointer}
         .section h2 .accent{color:#06b6d4}
 
         /* Expert grid & cards */
@@ -879,111 +917,116 @@ export class ExpertiseWebviewProvider {
     </div>
 
     <div class="section">
-        <h2><span class="accent">▸</span> Expert Profiles</h2>
-        <div class="table-controls">
-            <input type="text" id="contributor-filter" placeholder="Filter by name, email, or specialization..." class="filter-input" oninput="filterTable()">
-        </div>
-        <table class="contributor-table" id="contributor-table">
-            <thead>
-                <tr>
-                    <th class="sortable" onclick="sortTable('name')">Name <span class="sort-arrow" id="sort-name"></span></th>
-                    <th class="sortable" onclick="sortTable('email')">Email <span class="sort-arrow" id="sort-email"></span></th>
-                    <th class="sortable" onclick="sortTable('expertise')">Expertise <span class="sort-arrow" id="sort-expertise"></span></th>
-                    <th class="sortable" onclick="sortTable('contributions')">Commits <span class="sort-arrow" id="sort-contributions"></span></th>
-                    <th class="sortable" onclick="sortTable('lastCommit')">Last Commit <span class="sort-arrow" id="sort-lastCommit"></span></th>
-                    <th>Specializations</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${analysis.expertProfiles.map(expert => `
-                <tr data-name="${(expert.name || '').replace(/"/g, '&quot;')}" data-email="${(expert.email || '').replace(/"/g, '&quot;')}" data-expertise="${expert.expertise}" data-contributions="${expert.contributions}" data-lastcommit="${expert.lastCommit instanceof Date ? expert.lastCommit.toISOString() : expert.lastCommit || ''}" data-specs="${(expert.specializations || []).join(', ')}">
-                    <td>${expert.isBot ? '🤖 ' : ''}${expert.name}${expert.teamRole ? ` <span class="role-badge">${expert.teamRole}</span>` : ''}</td>
-                    <td class="email-cell">${expert.email}</td>
-                    <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${expert.expertise}%"></div></div> ${expert.expertise}%</td>
-                    <td>${expert.contributions}</td>
-                    <td>${this.safeFormatDate(expert.lastCommit)}</td>
-                    <td><div class="chips">${(expert.specializations || []).map(s => `<span class="chip">${s}</span>`).join('')}</div></td>
-                </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        <h2 style="margin-top:30px"><span class="accent">▸</span> Expert Cards</h2>
-        <div class="experts-grid">
-            ${analysis.expertProfiles.map(expert => {
-                const barColor = expert.isBot ? '#374151' : (expert.expertise >= 20 ? '#06b6d4' : '#374151');
-                const cardClass = expert.isBot ? 'bot' : (expert.expertise >= 60 ? 'high' : expert.expertise < 20 ? 'low' : '');
-                return `
-                <div class="expert-card ${cardClass}">
-                    <div class="expert-header">
-                        <div class="expert-avatar">
-                            <img src="https://github.com/${this.getGitHubUsername(expert.email, expert.name)}.png?size=96" 
-                                 alt="${expert.name}"
-                                 class="expert-avatar-img"
-                                 onload="this.nextElementSibling.style.display='none';"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                            <div class="expert-avatar-fallback">
-                                ${expert.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+        <h2 data-section-id="expert-profiles" class="collapsible-header">
+            <span><span class="accent">▸</span> Expert Profiles</span>
+            <span class="toggle-icon" id="expert-profiles-icon">▼</span>
+        </h2>
+        <div class="collapsible-content" id="expert-profiles-content">
+            <div class="table-controls">
+                <input type="text" id="contributor-filter" placeholder="Filter by name, email, or specialization..." class="filter-input">
+            </div>
+            <table class="contributor-table" id="contributor-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-sort-col="name">Name <span class="sort-arrow" id="sort-name"></span></th>
+                        <th class="sortable" data-sort-col="email">Email <span class="sort-arrow" id="sort-email"></span></th>
+                        <th class="sortable" data-sort-col="expertise">Expertise <span class="sort-arrow" id="sort-expertise"></span></th>
+                        <th class="sortable" data-sort-col="contributions">Commits <span class="sort-arrow" id="sort-contributions"></span></th>
+                        <th class="sortable" data-sort-col="lastCommit">Last Commit <span class="sort-arrow" id="sort-lastCommit"></span></th>
+                        <th>Specializations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${analysis.expertProfiles.map(expert => `
+                    <tr data-name="${(expert.name || '').replace(/"/g, '&quot;')}" data-email="${(expert.email || '').replace(/"/g, '&quot;')}" data-expertise="${expert.expertise}" data-contributions="${expert.contributions}" data-lastcommit="${expert.lastCommit instanceof Date ? expert.lastCommit.toISOString() : expert.lastCommit || ''}" data-specs="${(expert.specializations || []).join(', ')}">
+                        <td>${expert.isBot ? '🤖 ' : ''}${expert.name}${expert.teamRole ? ` <span class="role-badge">${expert.teamRole}</span>` : ''}</td>
+                        <td class="email-cell">${expert.email}</td>
+                        <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${expert.expertise}%"></div></div> ${expert.expertise}%</td>
+                        <td>${expert.contributions}</td>
+                        <td>${this.safeFormatDate(expert.lastCommit)}</td>
+                        <td><div class="chips">${(expert.specializations || []).map(s => `<span class="chip">${s}</span>`).join('')}</div></td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <h2 style="margin-top:30px"><span class="accent">▸</span> Expert Cards</h2>
+            <div class="experts-grid">
+                ${analysis.expertProfiles.map((expert, expertIndex) => {
+                    const barColor = expert.isBot ? '#374151' : (expert.expertise >= 20 ? '#06b6d4' : '#374151');
+                    const cardClass = expert.isBot ? 'bot' : (expert.expertise >= 60 ? 'high' : expert.expertise < 20 ? 'low' : '');
+                    const expertDomId = `${this.toSafeDomId(expert.name || 'expert')}-${expertIndex}`;
+                    const escapedExpertName = this.escapeHtmlAttribute(expert.name || 'Unknown');
+                    return `
+                    <div class="expert-card ${cardClass}">
+                        <div class="expert-header">
+                            <div class="expert-avatar">
+                                <img src="https://github.com/${this.getGitHubUsername(expert.email, expert.name)}.png?size=96" 
+                                     alt="${escapedExpertName}"
+                                     class="expert-avatar-img">
+                                <div class="expert-avatar-fallback">
+                                    ${expert.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </div>
+                            </div>
+                            <div class="expert-info">
+                                <h3>${expert.isBot ? '🤖 ' : ''}${expert.name}${expert.teamRole ? `<span class="role-badge">${expert.teamRole}</span>` : ''}</h3>
+                                <div class="expert-email">${expert.email}</div>
                             </div>
                         </div>
-                        <div class="expert-info">
-                            <h3>${expert.isBot ? '🤖 ' : ''}${expert.name}${expert.teamRole ? `<span class="role-badge">${expert.teamRole}</span>` : ''}</h3>
-                            <div class="expert-email">${expert.email}</div>
+
+                        <div class="bar-chart"><svg viewBox="0 0 400 24"><rect width="400" height="24" fill="#1e293b"/><rect width="${expert.expertise * 4}" height="24" fill="${barColor}"/><text x="${Math.max(expert.expertise * 4 - 8, 30)}" y="17" text-anchor="end" fill="#fff" font-size="12" font-weight="bold" font-family="sans-serif">${expert.expertise}%</text></svg></div>
+
+                        <div class="expert-stats">
+                            <div class="stat"><div class="stat-value">${expert.expertise}%</div><div class="stat-label">Expertise</div></div>
+                            <div class="stat"><div class="stat-value">${expert.contributions}</div><div class="stat-label">Commits</div></div>
+                            <div class="stat"><div class="stat-value">${this.calculateDaysAgo(expert.lastCommit)}</div><div class="stat-label">Days Ago</div></div>
                         </div>
-                    </div>
 
-                    <div class="bar-chart"><svg viewBox="0 0 400 24"><rect width="400" height="24" fill="#1e293b"/><rect width="${expert.expertise * 4}" height="24" fill="${barColor}"/><text x="${Math.max(expert.expertise * 4 - 8, 30)}" y="17" text-anchor="end" fill="#fff" font-size="12" font-weight="bold" font-family="sans-serif">${expert.expertise}%</text></svg></div>
+                        ${(expert.specializations || []).length ? `<div class="chips">${(expert.specializations || []).map(spec => `<span class="chip">${spec}</span>`).join('')}</div>` : ''}
 
-                    <div class="expert-stats">
-                        <div class="stat"><div class="stat-value">${expert.expertise}%</div><div class="stat-label">Expertise</div></div>
-                        <div class="stat"><div class="stat-value">${expert.contributions}</div><div class="stat-label">Commits</div></div>
-                        <div class="stat"><div class="stat-value">${this.calculateDaysAgo(expert.lastCommit)}</div><div class="stat-label">Days Ago</div></div>
-                    </div>
-
-                    ${(expert.specializations || []).length ? `<div class="chips">${(expert.specializations || []).map(spec => `<span class="chip">${spec}</span>`).join('')}</div>` : ''}
-
-                    <div class="expert-files">
-                        <div class="expert-files-header" onclick="toggleExpertFiles('${expert.name.replace(/\s+/g, '-')}')">
-                            <span>📁 Key Files (${analysis.fileExpertise.filter(file => 
-                                file.experts.some(e => e.name === expert.name)
-                            ).length})</span>
-                            <span class="toggle-icon collapsed" id="${expert.name.replace(/\s+/g, '-')}-icon">▶</span>
+                        <div class="expert-files">
+                            <div class="expert-files-header" data-expert-id="${expertDomId}">
+                                <span>📁 Key Files (${analysis.fileExpertise.filter(file => 
+                                    file.experts.some(e => e.name === expert.name)
+                                ).length})</span>
+                                <span class="toggle-icon collapsed" id="${expertDomId}-icon">▶</span>
+                            </div>
+                            <div class="expert-files-content collapsed" id="${expertDomId}-content">
+                                ${analysis.fileExpertise.filter(file => 
+                                    file.experts.some(e => e.name === expert.name)
+                                ).slice(0, 5).map(file => `
+                                    <div class="expert-file-item" data-file-path="${this.escapeHtmlAttribute(file.filePath)}">
+                                        <div class="file-name">${file.fileName}</div>
+                                        <div class="file-changes">🔄 ${file.changeFrequency}</div>
+                                    </div>
+                                `).join('')}
+                                ${analysis.fileExpertise.filter(file => 
+                                    file.experts.some(e => e.name === expert.name)
+                                ).length > 5 ? `
+                                    <div class="expert-file-item more-files">
+                                        <em>+ ${analysis.fileExpertise.filter(file => 
+                                            file.experts.some(e => e.name === expert.name)
+                                        ).length - 5} more files</em>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
-                        <div class="expert-files-content collapsed" id="${expert.name.replace(/\s+/g, '-')}-content">
-                            ${analysis.fileExpertise.filter(file => 
-                                file.experts.some(e => e.name === expert.name)
-                            ).slice(0, 5).map(file => `
-                                <div class="expert-file-item" onclick="openFile('${file.filePath}'); event.stopPropagation();">
-                                    <div class="file-name">${file.fileName}</div>
-                                    <div class="file-changes">🔄 ${file.changeFrequency}</div>
-                                </div>
-                            `).join('')}
-                            ${analysis.fileExpertise.filter(file => 
-                                file.experts.some(e => e.name === expert.name)
-                            ).length > 5 ? `
-                                <div class="expert-file-item more-files">
-                                    <em>+ ${analysis.fileExpertise.filter(file => 
-                                        file.experts.some(e => e.name === expert.name)
-                                    ).length - 5} more files</em>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
 
-                    <div class="expert-actions">
-                        <button class="expert-button primary" onclick="showExpertDetails('${expert.name}')">
-                            📋 View Details
-                        </button>
-                        <button class="expert-button" onclick="getExpertActivity('${expert.name}')">
-                            🔍 Recent Activity
-                        </button>
-                    </div>
-                </div>`;
-            }).join('')}
+                        <div class="expert-actions">
+                            <button type="button" class="expert-button primary" data-expert-action="details" data-expert-name="${escapedExpertName}">
+                                📋 View Details
+                            </button>
+                            <button type="button" class="expert-button" data-expert-action="activity" data-expert-name="${escapedExpertName}">
+                                🔍 Recent Activity
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
         </div>
     </div>
 
     <div class="section">
-        <h2 onclick="toggleSection('management')" class="collapsible-header">
+        <h2 data-section-id="management" class="collapsible-header">
             <span><span class="accent">▸</span> Management Insights</span>
             <span class="toggle-icon" id="management-icon">▼</span>
         </h2>
@@ -993,7 +1036,7 @@ export class ExpertiseWebviewProvider {
     </div>
 
     <div class="section">
-        <h2 onclick="toggleSection('health')" class="collapsible-header">
+        <h2 data-section-id="health" class="collapsible-header">
             <span><span class="accent">▸</span> Team Health Metrics</span>
             <span class="toggle-icon" id="health-icon">▼</span>
         </h2>
@@ -1003,7 +1046,7 @@ export class ExpertiseWebviewProvider {
     </div>
 
     <div class="section">
-        <h2 onclick="toggleSection('ai-insights')" class="collapsible-header">
+        <h2 data-section-id="ai-insights" class="collapsible-header">
             <span><span class="accent">▸</span> Key Insights</span>
             <span class="toggle-icon" id="ai-insights-icon">▼</span>
         </h2>
@@ -1018,10 +1061,10 @@ export class ExpertiseWebviewProvider {
     </div>
 
     <div class="action-buttons">
-        <button class="refresh-button" onclick="refreshAnalysis()">
+        <button type="button" class="refresh-button" id="refresh-analysis-button">
             🔄 Refresh Analysis
         </button>
-        <button class="export-button" onclick="exportAnalysis()">
+        <button type="button" class="export-button" id="export-analysis-button">
             📊 Export Analysis
         </button>
     </div>
@@ -1029,11 +1072,12 @@ export class ExpertiseWebviewProvider {
     <div class="footer">Generated by Team X-Ray · ${this.safeFormatDate(analysis.generatedAt)}</div>
 </div>
 
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+        const experts = ${JSON.stringify(analysis.expertProfiles)};
 
         function showExpertDetails(expertName) {
-            const expert = ${JSON.stringify(analysis.expertProfiles)}.find(e => e.name === expertName);
+            const expert = experts.find(e => e.name === expertName);
             if (expert) {
                 vscode.postMessage({
                     command: 'showExpertDetails',
@@ -1043,7 +1087,7 @@ export class ExpertiseWebviewProvider {
         }
 
         function getExpertActivity(expertName) {
-            const expert = ${JSON.stringify(analysis.expertProfiles)}.find(e => e.name === expertName);
+            const expert = experts.find(e => e.name === expertName);
             if (expert) {
                 vscode.postMessage({
                     command: 'getExpertActivity',
@@ -1070,6 +1114,38 @@ export class ExpertiseWebviewProvider {
                 command: 'exportAnalysis'
             });
         }
+
+        document.querySelectorAll('.expert-avatar-img').forEach((imgElement) => {
+            if (!(imgElement instanceof HTMLImageElement)) {
+                return;
+            }
+
+            const fallbackElement = imgElement.nextElementSibling;
+
+            const showFallback = () => {
+                imgElement.style.display = 'none';
+                if (fallbackElement && fallbackElement instanceof HTMLElement) {
+                    fallbackElement.style.display = 'flex';
+                }
+            };
+
+            const hideFallback = () => {
+                if (fallbackElement && fallbackElement instanceof HTMLElement) {
+                    fallbackElement.style.display = 'none';
+                }
+            };
+
+            imgElement.addEventListener('load', hideFallback);
+            imgElement.addEventListener('error', showFallback);
+
+            if (imgElement.complete) {
+                if (imgElement.naturalWidth > 0) {
+                    hideFallback();
+                } else {
+                    showFallback();
+                }
+            }
+        });
 
         function toggleExpertFiles(expertId) {
             const content = document.getElementById(expertId + '-content');
@@ -1109,13 +1185,90 @@ export class ExpertiseWebviewProvider {
             }
         }
 
+        document.querySelectorAll('.expert-files-header[data-expert-id]').forEach((header) => {
+            header.addEventListener('click', () => {
+                const expertId = header.getAttribute('data-expert-id');
+                if (expertId) {
+                    toggleExpertFiles(expertId);
+                }
+            });
+        });
+
+        document.querySelectorAll('.collapsible-header[data-section-id]').forEach((header) => {
+            header.addEventListener('click', () => {
+                const sectionId = header.getAttribute('data-section-id');
+                if (sectionId) {
+                    toggleSection(sectionId);
+                }
+            });
+        });
+
+        document.querySelectorAll('.expert-file-item[data-file-path]').forEach((item) => {
+            item.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const filePath = item.getAttribute('data-file-path');
+                if (filePath) {
+                    openFile(filePath);
+                }
+            });
+        });
+
+        document.querySelectorAll('.expert-button[data-expert-action][data-expert-name]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const action = button.getAttribute('data-expert-action');
+                const expertName = button.getAttribute('data-expert-name');
+
+                if (!expertName) {
+                    return;
+                }
+
+                if (action === 'details') {
+                    showExpertDetails(expertName);
+                } else if (action === 'activity') {
+                    getExpertActivity(expertName);
+                }
+            });
+        });
+
+        const refreshButton = document.getElementById('refresh-analysis-button');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', refreshAnalysis);
+        }
+
+        const exportButton = document.getElementById('export-analysis-button');
+        if (exportButton) {
+            exportButton.addEventListener('click', exportAnalysis);
+        }
+
+        document.querySelectorAll('.sortable[data-sort-col]').forEach((header) => {
+            header.addEventListener('click', () => {
+                const sortColumn = header.getAttribute('data-sort-col');
+                if (sortColumn) {
+                    sortTable(sortColumn);
+                }
+            });
+        });
+
+        const contributorFilter = document.getElementById('contributor-filter');
+        if (contributorFilter) {
+            contributorFilter.addEventListener('input', filterTable);
+        }
+
         // --- Sortable/Filterable Contributor Table ---
         let currentSortCol = null;
         let currentSortAsc = true;
 
         function sortTable(col) {
             const table = document.getElementById('contributor-table');
+            if (!(table instanceof HTMLTableElement)) {
+                return;
+            }
+
             const tbody = table.querySelector('tbody');
+            if (!tbody) {
+                return;
+            }
+
             const rows = Array.from(tbody.querySelectorAll('tr'));
 
             if (currentSortCol === col) {
@@ -1155,8 +1308,17 @@ export class ExpertiseWebviewProvider {
         }
 
         function filterTable() {
-            const query = document.getElementById('contributor-filter').value.toLowerCase();
+            const filterElement = document.getElementById('contributor-filter');
+            if (!(filterElement instanceof HTMLInputElement)) {
+                return;
+            }
+
             const table = document.getElementById('contributor-table');
+            if (!(table instanceof HTMLTableElement)) {
+                return;
+            }
+
+            const query = filterElement.value.toLowerCase();
             const rows = table.querySelectorAll('tbody tr');
 
             rows.forEach(row => {

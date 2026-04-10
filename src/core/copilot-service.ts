@@ -21,6 +21,13 @@ import type {
     RepositoryStats,
     TeamInsight,
 } from '../types/expert';
+import { detectBotContributor } from '../utils/bot-detection';
+import {
+    buildFallbackManagementInsights,
+    buildFallbackTeamHealthMetrics,
+    normalizeManagementInsights,
+    normalizeTeamHealthMetrics
+} from '../utils/analysis-enrichment';
 import type { ExpertiseAnalysis } from './expertise-analyzer';
 
 /** BYOK provider configuration — matches the SDK's ProviderConfig shape. */
@@ -489,6 +496,17 @@ export class CopilotService {
             impact: i.impact ?? 'medium',
             recommendations: i.recommendations ?? [],
         }));
+        const teamHealthMetrics = normalizeTeamHealthMetrics(
+            raw.teamHealthMetrics ?? raw.teamHealth,
+            experts,
+            stats
+        );
+        const managementInsights = normalizeManagementInsights(
+            raw.managementInsights,
+            experts,
+            teamHealthMetrics,
+            stats
+        );
 
         return {
             repository: data.repository,
@@ -503,16 +521,8 @@ export class CopilotService {
             generatedAt: new Date(),
             teamDynamics: raw.teamDynamics ?? undefined,
             challengeMatching: raw.challengeMatching ?? undefined,
-            managementInsights: (raw.managementInsights ?? []).map((m: any) => ({
-                category: m.category ?? 'OPPORTUNITY',
-                priority: m.priority ?? 'MEDIUM',
-                title: m.title ?? '',
-                description: m.description ?? '',
-                actionItems: m.actionItems ?? [],
-                timeline: m.timeline ?? '1 month',
-                impact: m.impact ?? '',
-            })),
-            teamHealthMetrics: raw.teamHealthMetrics ?? undefined,
+            managementInsights,
+            teamHealthMetrics,
         };
     }
 
@@ -520,6 +530,7 @@ export class CopilotService {
         return {
             name: e.name ?? 'Unknown',
             email: e.email ?? '',
+            isBot: detectBotContributor(e.name, e.email),
             expertise: typeof e.expertise === 'number' ? e.expertise : 50,
             contributions: e.contributions ?? 0,
             lastCommit: new Date(e.lastCommit ?? Date.now()),
@@ -542,6 +553,7 @@ export class CopilotService {
         const experts: Expert[] = data.contributors.slice(0, 20).map(c => ({
             name: c.name,
             email: c.email,
+            isBot: detectBotContributor(c.name, c.email),
             expertise: Math.min(100, (c.commits / (stats.totalCommits || 1)) * 100),
             contributions: c.commits,
             lastCommit: new Date(c.lastCommit),
@@ -551,6 +563,8 @@ export class CopilotService {
             hiddenStrengths: [],
             idealChallenges: [],
         }));
+        const teamHealthMetrics = buildFallbackTeamHealthMetrics(experts, stats);
+        const managementInsights = buildFallbackManagementInsights(experts, teamHealthMetrics, stats);
 
         return {
             repository: data.repository,
@@ -569,6 +583,8 @@ export class CopilotService {
             totalExperts: experts.length,
             expertProfiles: experts,
             generatedAt: new Date(),
+            managementInsights,
+            teamHealthMetrics,
         };
     }
 }

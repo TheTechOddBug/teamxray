@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Bug Fixes
+- Fixed bot/agent detection in the Copilot SDK analysis path so contributors from that flow are consistently tagged with `isBot`.
+- Improved cross-repository report reliability by hardening git worker timeouts and adding a commit-history fallback when contributor queries time out.
+
 ### 📖 Documentation
 - Clarified current positioning around Copilot SDK, GitHub Models fallback, and reduced local git fallback.
 
