@@ -5,6 +5,11 @@ All notable changes to the Team X-Ray extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2026-04-16
+
+### 🐛 Bug Fixes
+- Fixed reports showing empty "Key Insights" and generic recommendations by wiring `generateAnalysisSummary()` and `generateRecommendations()` to the actual analysis data (`managementInsights`, `teamHealthMetrics`, and key insights), and added a fallback in the Copilot SDK path so the Key Insights section no longer vanishes when the insights array is empty. (#38)
+
 ## [2.0.3] - 2026-04-10
 
 ### 🐛 Bug Fixes
