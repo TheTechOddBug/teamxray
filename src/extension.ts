@@ -376,12 +376,65 @@ Specializations: ${(expert.specializations || []).join(', ')}`;
         }
     });
 
-    // Register status bar item
+    // Register status bar item — clicking opens a quick-pick menu of actions.
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.command = 'teamxray.showTeamOverview';
+    statusBarItem.command = 'teamxray.showStatusMenu';
     statusBarItem.text = '$(organization) Team X-Ray';
-    statusBarItem.tooltip = 'Show team expertise overview';
+    statusBarItem.tooltip = 'Team X-Ray — click for options';
     statusBarItem.show();
+
+    const showStatusMenuCommand = vscode.commands.registerCommand('teamxray.showStatusMenu', async () => {
+        type MenuItem = vscode.QuickPickItem & { command: string };
+        const items: MenuItem[] = [
+            {
+                label: '$(organization) Show Team Overview',
+                description: 'Open the team expertise overview',
+                command: 'teamxray.showTeamOverview',
+            },
+            {
+                label: '$(search) Analyze Repository',
+                description: 'Run a full team expertise analysis',
+                command: 'teamxray.analyzeRepository',
+            },
+            {
+                label: '$(person) Find Expert for File…',
+                description: 'Identify the best expert for a file',
+                command: 'teamxray.findExpertForFile',
+            },
+            {
+                label: '$(calendar) Set History Window…',
+                description: 'Bound git-log analysis to N days',
+                command: 'teamxray.setHistoryWindow',
+            },
+            {
+                label: '$(key) Set GitHub Token…',
+                description: 'Store a GitHub personal access token',
+                command: 'teamxray.setGitHubToken',
+            },
+            {
+                label: '$(key) Set BYOK API Key…',
+                description: 'Configure your Bring-Your-Own-Key provider',
+                command: 'teamxray.setByokApiKey',
+            },
+            {
+                label: '$(gear) Open Team X-Ray Settings',
+                description: 'Edit extension configuration',
+                command: '__openSettings',
+            },
+        ];
+
+        const pick = await vscode.window.showQuickPick(items, {
+            title: 'Team X-Ray',
+            placeHolder: 'Choose an action',
+        });
+        if (!pick) { return; }
+
+        if (pick.command === '__openSettings') {
+            await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:AndreaGriffiths.teamxray');
+            return;
+        }
+        await vscode.commands.executeCommand(pick.command);
+    });
 
     // Add all commands to subscriptions 
     context.subscriptions.push(
@@ -390,6 +443,7 @@ Specializations: ${(expert.specializations || []).join(', ')}`;
         showOverviewCommand,
         openFileFromTreeCommand,
         showExpertDetailsCommand,
+        showStatusMenuCommand,
         statusBarItem
     );
 

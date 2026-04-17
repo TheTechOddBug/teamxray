@@ -528,6 +528,7 @@ export class CopilotService {
             this.outputChannel.appendLine(
                 '[CopilotService] Could not extract JSON from response, using partial parse'
             );
+            this.logRawResponseForDiagnostics(content);
             return this.buildMinimalAnalysis(data, stats);
         }
 
@@ -538,7 +539,35 @@ export class CopilotService {
             this.outputChannel.appendLine(
                 `[CopilotService] JSON parse error: ${err}`
             );
+            this.logRawResponseForDiagnostics(content, json);
             return this.buildMinimalAnalysis(data, stats);
+        }
+    }
+
+    /**
+     * Log the raw AI response (and extracted JSON candidate, if any) to help
+     * diagnose parse failures. Truncates very long content so the output
+     * channel stays usable.
+     */
+    private logRawResponseForDiagnostics(content: string, jsonCandidate?: string): void {
+        const maxLen = 4000;
+        const truncate = (s: string): string =>
+            s.length > maxLen ? `${s.slice(0, maxLen)}\n…[truncated ${s.length - maxLen} chars]` : s;
+
+        this.outputChannel.appendLine(
+            `[CopilotService] Raw response length: ${content.length} chars`
+        );
+        this.outputChannel.appendLine('[CopilotService] ── Raw response (begin) ──');
+        this.outputChannel.appendLine(truncate(content));
+        this.outputChannel.appendLine('[CopilotService] ── Raw response (end) ──');
+
+        if (jsonCandidate) {
+            this.outputChannel.appendLine(
+                `[CopilotService] Extracted JSON candidate length: ${jsonCandidate.length} chars`
+            );
+            this.outputChannel.appendLine('[CopilotService] ── JSON candidate (begin) ──');
+            this.outputChannel.appendLine(truncate(jsonCandidate));
+            this.outputChannel.appendLine('[CopilotService] ── JSON candidate (end) ──');
         }
     }
 

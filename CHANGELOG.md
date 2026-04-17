@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-04-17
+
+### ✨ Features
+- Status bar item now opens a quick-pick menu with common actions (Show Team Overview, Analyze Repository, Find Expert for File, Set History Window, Set GitHub Token, Set BYOK API Key, Open Settings) instead of running a single command.
+
+### 🐛 Bug Fixes
+- Added diagnostic logging for AI response parse failures: the Team X-Ray output channel now captures the raw response and extracted JSON candidate when parsing fails, making intermittent "AI response could not be fully parsed" errors debuggable.
+
 ## [2.0.5] - 2026-04-17
 
 ### ✨ Features
