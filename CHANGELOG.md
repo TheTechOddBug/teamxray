@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-04-17
+
+### 🔧 Infrastructure
+- Slimmed the VSIX by excluding `.claude/`, `evals/`, `evalite-report.jsonl`, `PLAN.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.mcp.json`, local `npm` binary stub, and locally built `teamxray-*.vsix` artifacts from the published package.
+
 ## [2.0.6] - 2026-04-17
 
 ### ✨ Features
