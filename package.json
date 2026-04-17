@@ -166,6 +166,12 @@
         "teamxray.byokModel": {
           "type": "string",
           "description": "Model name for BYOK provider (e.g. gpt-4o, claude-sonnet-4-5-20250929)"
+        },
+        "teamxray.historyWindowDays": {
+          "type": "integer",
+          "default": 90,
+          "minimum": 0,
+          "description": "Limit git history to the last N days. Set to 0 to analyze all history (still capped at 1000 commits)."
         }
       }
     }

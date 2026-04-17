@@ -169,7 +169,7 @@ export class GitService {
      * @param limit - Maximum number of commits to retrieve
      * @returns Array of git commits
      */
-    async getCommits(limit: number = 500): Promise<GitCommit[]> {
+    async getCommits(limit: number = 500, sinceDate?: string): Promise<GitCommit[]> {
         const args = [
             'log',
             '--pretty=format:%H|%an|%ae|%ad|%s',
@@ -177,6 +177,9 @@ export class GitService {
             '-n',
             String(Math.max(1, Math.min(limit, 1000))) // Clamp between 1 and 1000
         ];
+        if (sinceDate) {
+            args.push(`--since=${sinceDate}`);
+        }
 
         const output = await this.executeGitCommand(args);
         return this.parseCommitOutput(output);

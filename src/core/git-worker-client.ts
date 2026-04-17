@@ -63,8 +63,8 @@ export class GitWorkerClient {
         });
     }
 
-    async getCommits(repoPath: string, limit: number = 500): Promise<any[]> {
-        return this.send({ type: 'getCommits', repoPath, limit });
+    async getCommits(repoPath: string, limit: number = 500, sinceDate?: string): Promise<any[]> {
+        return this.send({ type: 'getCommits', repoPath, limit, sinceDate });
     }
 
     async getContributors(repoPath: string): Promise<any[]> {

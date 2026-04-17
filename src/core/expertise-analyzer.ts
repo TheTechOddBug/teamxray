@@ -1292,13 +1292,34 @@ Respond with JSON only (NO markdown, NO explanations):
             }
 
             const client = this.getOrCreateWorkerClient();
-            const commits = await client.getCommits(workspaceFolder.uri.fsPath, 500);
-            return commits;
+            const repoPath = workspaceFolder.uri.fsPath;
+            const sinceDate = this.getHistoryWindowSinceDate();
+
+            if (sinceDate) {
+                this.outputChannel.appendLine(`🗓️ Limiting git history to commits since ${sinceDate}`);
+                const windowed = await client.getCommits(repoPath, 500, sinceDate);
+                if (windowed.length > 0) {
+                    return windowed;
+                }
+                this.outputChannel.appendLine('⚠️ No commits in configured window, falling back to full history');
+            }
+
+            return await client.getCommits(repoPath, 500);
 
         } catch (error) {
             this.outputChannel.appendLine(`⚠️ Failed to get local git commits: ${error}`);
             return [];
         }
+    }
+
+    private getHistoryWindowSinceDate(): string | undefined {
+        const raw = vscode.workspace.getConfiguration('teamxray').get<number>('historyWindowDays', 90);
+        const days = Number.isInteger(raw) && raw! >= 0 ? raw! : 90;
+        if (days === 0) {
+            return undefined;
+        }
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        return since.toISOString().split('T')[0];
     }
 
     private async getLocalGitContributors(): Promise<any[]> {

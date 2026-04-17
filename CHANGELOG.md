@@ -5,6 +5,11 @@ All notable changes to the Team X-Ray extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Features
+- Added `teamxray.historyWindowDays` setting (default 90) to limit git history analysis to a recent time window. Prevents deep repos from hitting the 1000-commit cap and silently dropping recent-but-not-newest commits. Set to 0 to restore previous unbounded behavior. Falls back to full history if the window returns no commits.
+
 ## [2.0.4] - 2026-04-16
 
 ### 🐛 Bug Fixes

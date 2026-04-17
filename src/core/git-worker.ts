@@ -18,16 +18,25 @@ interface WorkerMessage {
     type: 'getCommits' | 'getContributors';
     repoPath: string;
     limit?: number;
+    sinceDate?: string;
 }
 
-async function getCommits(repoPath: string, limit: number) {
-    const { stdout } = await execFileAsync('git', [
+async function getCommits(repoPath: string, limit: number, sinceDate?: string) {
+    const args = [
         'log',
         '--pretty=format:%H|%an|%ae|%ad|%s',
         '--date=iso',
         '-n',
         String(Math.max(1, Math.min(limit, 1000)))
-    ], { cwd: repoPath, timeout: GIT_TIMEOUT_MS, maxBuffer: MAX_BUFFER });
+    ];
+    if (sinceDate) {
+        args.push(`--since=${sinceDate}`);
+    }
+    const { stdout } = await execFileAsync('git', args, {
+        cwd: repoPath,
+        timeout: GIT_TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER
+    });
 
     return stdout
         .split('\n')
@@ -99,7 +108,7 @@ if (parentPort) {
         try {
             let result: any;
             if (msg.type === 'getCommits') {
-                result = await getCommits(msg.repoPath, msg.limit ?? 500);
+                result = await getCommits(msg.repoPath, msg.limit ?? 500, msg.sinceDate);
             } else if (msg.type === 'getContributors') {
                 result = await getContributors(msg.repoPath);
             } else {
