@@ -38,6 +38,30 @@ Also verify:
 - `teamxray.byokBaseUrl` is set
 - `teamxray.byokModel` is valid if you configured one
 
+## BYOK returns 401 Unauthorized
+
+The API key isn't being sent or isn't valid for the provider you selected.
+
+- Re-run `Team X-Ray: Set BYOK API Key (Secure)` and paste the key again. The secret is stored per-machine; it won't roam with your settings.
+- Confirm the key matches the provider: an `sk-ant-...` key with `teamxray.aiProvider` set to `byok-openai` will always 401.
+- If you're migrating from the deprecated `teamxray.byokApiKey` settings entry, remove it from `settings.json` after setting the secure key. Mixed state can confuse the fallback logic.
+
+## BYOK returns 404 Not Found
+
+Almost always a `byokBaseUrl` mistake.
+
+- **OpenAI:** the URL needs the `/v1` suffix: `https://api.openai.com/v1`, not `https://api.openai.com`.
+- **Anthropic:** same pattern: `https://api.anthropic.com/v1`.
+- **Azure OpenAI:** the URL must include both the resource name and the deployment name. Get the full URL from the Azure Portal: OpenAI resource → Deployments → your deployment → "Target URI". It looks like `https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT`.
+
+If you're behind a corporate proxy or gateway, confirm the gateway path matches what the provider's SDK expects, not just the hostname.
+
+## Azure BYOK: "deployment not found"
+
+Azure routes by **deployment name**, not model name. If you set `teamxray.byokModel` to `gpt-4o`, Azure will reject it unless your deployment happens to be named `gpt-4o`.
+
+Set `teamxray.byokModel` to your deployment name (from the Azure Portal Deployments list), or leave it unset if the deployment name is already encoded in `byokBaseUrl`.
+
 ## Analysis Takes Too Long
 
 Large repos (300K+ commits) take time even with the worker thread. The worker prevents VS Code from freezing, but parsing hundreds of thousands of commits is inherently slow.

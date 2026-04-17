@@ -23,22 +23,58 @@ If the CLI is installed outside your PATH, point the extension at it with `teamx
 
 ## BYOK provider overrides
 
-BYOK settings are available, but in the current implementation they are applied through the Copilot SDK session rather than as a standalone non-Copilot path.
+BYOK (Bring Your Own Key) lets you point the Copilot SDK session at a different model provider using your own API key. Use it when:
 
-Supported values:
-- `byok-openai`
-- `byok-anthropic`
-- `byok-azure`
+- Your org blocks Copilot but permits direct provider access
+- You want a specific frontier model (e.g. a newer Claude release)
+- You route AI traffic through an internal proxy or gateway
+- You're testing model-to-model quality on the same repo
 
-Store the secret with:
+### Important: Copilot CLI is still required
 
-```
-Command Palette → Team X-Ray: Set BYOK API Key (Secure)
-```
+BYOK is wired through the Copilot SDK session, not as a standalone provider path. The Copilot CLI must be installed and authenticated even when `teamxray.aiProvider` is set to a `byok-*` value. Your API key and baseUrl override the model the SDK talks to; the session orchestration is still Copilot's.
 
-Also set:
-- `teamxray.byokBaseUrl` (required)
-- `teamxray.byokModel` (optional)
+If this changes in a future version, this note will be removed.
+
+### Supported providers
+
+| `teamxray.aiProvider` | Provider | Typical `byokBaseUrl` |
+|---|---|---|
+| `byok-openai` | OpenAI | `https://api.openai.com/v1` |
+| `byok-anthropic` | Anthropic | `https://api.anthropic.com/v1` |
+| `byok-azure` | Azure OpenAI | `https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT` |
+
+Azure URLs include the resource name and deployment name. Get them from the Azure Portal under your OpenAI resource → Deployments.
+
+### End-to-end example (Anthropic)
+
+1. Install and authenticate the Copilot CLI (see Option 1 above).
+2. Command Palette: `Team X-Ray: Set BYOK API Key (Secure)`. Paste your `sk-ant-...` key.
+3. Open VS Code settings (JSON) and add:
+   ```json
+   "teamxray.aiProvider": "byok-anthropic",
+   "teamxray.byokBaseUrl": "https://api.anthropic.com/v1",
+   "teamxray.byokModel": "claude-sonnet-4-5-20250929"
+   ```
+4. Run `Team X-Ray: Analyze Repository Expertise`.
+
+### Settings reference
+
+| Setting | Required | Notes |
+|---|---|---|
+| `teamxray.aiProvider` | yes | Set to `byok-openai`, `byok-anthropic`, or `byok-azure` |
+| API key (SecretStorage) | yes | Set via `Team X-Ray: Set BYOK API Key (Secure)`, not in JSON settings |
+| `teamxray.byokBaseUrl` | yes | Full endpoint URL. See table above |
+| `teamxray.byokModel` | optional | Model identifier. Examples: `gpt-4o`, `claude-sonnet-4-5-20250929`, your Azure deployment name |
+
+### Migrating from `teamxray.byokApiKey`
+
+The `teamxray.byokApiKey` setting is deprecated because settings JSON is plaintext. If you have a value there from an older version:
+
+1. Run `Team X-Ray: Set BYOK API Key (Secure)` and paste the same key. It will be stored in VS Code's encrypted SecretStorage.
+2. Remove `teamxray.byokApiKey` from your settings JSON.
+
+The extension reads SecretStorage first and only falls back to the plaintext setting for migration.
 
 ## GitHub Models fallback
 

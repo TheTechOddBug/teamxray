@@ -35,20 +35,9 @@ Leave `teamxray.aiProvider` set to `copilot` (the default).
 
 ### Option 2: BYOK through the Copilot SDK
 
-Open the Command Palette and run:
+Use BYOK to route analysis through your own OpenAI, Anthropic, or Azure OpenAI key. The Copilot CLI is still required because BYOK runs inside the Copilot SDK session.
 
-```
-Team X-Ray: Set BYOK API Key (Secure)
-```
-
-Enter your API key. It's stored in VS Code's SecretStorage (encrypted, per-machine).
-
-Then configure:
-- `teamxray.aiProvider` = `byok-openai`, `byok-anthropic`, or `byok-azure`
-- `teamxray.byokBaseUrl` = your provider endpoint (required in the current implementation)
-- `teamxray.byokModel` = optional model override
-
-BYOK is currently wired through the Copilot SDK session, so the Copilot CLI still needs to be installed and authenticated.
+See [AI Providers → BYOK provider overrides](ai-providers.md#byok-provider-overrides) for the full setup, provider-specific `byokBaseUrl` values, and an end-to-end example.
 
 ### Option 3: GitHub Models fallback
 
@@ -72,5 +61,5 @@ There is no separate "local-only" provider to configure in the normal success pa
 |---------|-------------|---------|
 | `teamxray.aiProvider` | Provider setting: `copilot`, `byok-openai`, `byok-anthropic`, `byok-azure`, `github-models` | `copilot` |
 | `teamxray.cliPath` | Path to the Copilot CLI executable when it is not available on your PATH | auto-detect |
-| `teamxray.byokModel` | Model override for BYOK providers (e.g. `gpt-4o`, `claude-3-5-sonnet-20241022`) | — |
+| `teamxray.byokModel` | Model override for BYOK providers (e.g. `gpt-4o`, `claude-sonnet-4-5-20250929`) | — |
 | `teamxray.byokBaseUrl` | Custom API endpoint for BYOK (useful for proxies or Azure deployments) | — |
