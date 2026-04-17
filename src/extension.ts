@@ -88,7 +88,15 @@ export function activate(context: vscode.ExtensionContext) {
 
             await config.update('historyWindowDays', days, vscode.ConfigurationTarget.Workspace);
             const label = days === 0 ? 'all history' : `the last ${days} days`;
-            vscode.window.showInformationMessage(`Team X-Ray will analyze ${label} on the next run.`);
+            const analyzeNowOption = 'Analyze Now';
+            const choice = await vscode.window.showInformationMessage(
+                `History window updated to ${label}. Run Team X-Ray analysis now?`,
+                analyzeNowOption,
+                'Later'
+            );
+            if (choice === analyzeNowOption) {
+                await vscode.commands.executeCommand('teamxray.analyzeRepository');
+            }
         })
     );
 
