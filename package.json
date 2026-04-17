@@ -87,6 +87,10 @@
       {
         "command": "teamxray.analyzeFile",
         "title": "Team X-Ray: Analyze This File"
+      },
+      {
+        "command": "teamxray.setHistoryWindow",
+        "title": "Team X-Ray: Set History Window"
       }
     ],
     "menus": {

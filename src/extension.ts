@@ -46,6 +46,53 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('teamxray.setHistoryWindow', async () => {
+            const config = vscode.workspace.getConfiguration('teamxray');
+            const current = config.get<number>('historyWindowDays', 90);
+
+            const presets: Array<vscode.QuickPickItem & { days: number | 'custom' }> = [
+                { label: '30 days', description: 'Quick scan · active sprint', days: 30 },
+                { label: '90 days', description: 'Default · current quarter', days: 90 },
+                { label: '180 days', description: 'Half year', days: 180 },
+                { label: '1 year', description: 'Long tail', days: 365 },
+                { label: 'All history', description: 'No window · slower, deeper', days: 0 },
+                { label: 'Custom…', description: 'Enter a number of days', days: 'custom' },
+            ];
+
+            for (const item of presets) {
+                if (item.days === current) {
+                    item.description = `${item.description} (current)`;
+                }
+            }
+
+            const picked = await vscode.window.showQuickPick(presets, {
+                title: 'Team X-Ray: Set History Window',
+                placeHolder: `Current: ${current === 0 ? 'All history' : `${current} days`}`,
+            });
+            if (!picked) { return; }
+
+            let days = picked.days;
+            if (days === 'custom') {
+                const input = await vscode.window.showInputBox({
+                    prompt: 'Number of days of git history to analyze (0 = all history)',
+                    value: String(current),
+                    validateInput: (v) => {
+                        const n = Number(v);
+                        if (!Number.isInteger(n) || n < 0) { return 'Enter a non-negative integer'; }
+                        return null;
+                    },
+                });
+                if (input === undefined) { return; }
+                days = Number(input);
+            }
+
+            await config.update('historyWindowDays', days, vscode.ConfigurationTarget.Workspace);
+            const label = days === 0 ? 'all history' : `the last ${days} days`;
+            vscode.window.showInformationMessage(`Team X-Ray will analyze ${label} on the next run.`);
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('teamxray.setByokApiKey', async () => {
             const apiKey = await vscode.window.showInputBox({
                 prompt: 'Enter your BYOK API key',

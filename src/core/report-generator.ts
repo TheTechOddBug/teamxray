@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { ExpertiseAnalysis } from './expertise-analyzer';
 
 export class ReportGenerator {
@@ -6,6 +7,8 @@ export class ReportGenerator {
      */
     public static generateHTMLReport(analysis: ExpertiseAnalysis): string {
         const repoName = analysis.repository.split('/').pop() || 'analysis';
+        const windowDays = vscode.workspace.getConfiguration('teamxray').get<number>('historyWindowDays', 90);
+        const windowLabel = windowDays === 0 ? 'All history' : `Last ${windowDays} days`;
         
         const priorityDots = (p: string) => p === 'HIGH' ? '●●●' : p === 'MEDIUM' ? '●●○' : '●○○';
         const categoryColor = (c: string) => ({ RISK: '#ef4444', OPPORTUNITY: '#10b981', EFFICIENCY: '#3b82f6', GROWTH: '#f59e0b' }[c] || '#64748b');
@@ -154,6 +157,7 @@ export class ReportGenerator {
             <div>
                 <span class="pill">${analysis.totalFiles} files scanned</span>
                 <span class="pill">${analysis.expertProfiles.filter(e => !e.isBot).length} humans · ${analysis.expertProfiles.filter(e => e.isBot).length} agents</span>
+                <span class="pill">${windowLabel}</span>
             </div>
         </div>
 
