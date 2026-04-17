@@ -37,6 +37,8 @@ interface ProviderConfig {
     apiKey?: string;
 }
 
+type CopilotSessionInstance = InstanceType<(typeof import('@github/copilot-sdk'))['CopilotSession']>;
+
 /**
  * CopilotService wraps the Copilot SDK to provide AI-powered team analysis.
  *
@@ -48,6 +50,9 @@ export class CopilotService {
     private outputChannel: vscode.OutputChannel;
     private secretStorage: vscode.SecretStorage;
     private _available = false;
+    private readonly ANALYSIS_TIMEOUT_MS = 300_000;
+    private readonly FILE_EXPERT_TIMEOUT_MS = 90_000;
+    private readonly TIMEOUT_RECOVERY_WAIT_MS = 10_000;
 
     constructor(outputChannel: vscode.OutputChannel, secretStorage: vscode.SecretStorage) {
         this.outputChannel = outputChannel;
@@ -159,9 +164,11 @@ export class CopilotService {
 
         try {
             const prompt = this.buildAnalysisPrompt(data.repository, repoStats);
-            const response = await session.sendAndWait(
-                { prompt },
-                180_000 // 3 minute timeout for large repos
+            const response = await this.sendAndWaitWithTimeoutRecovery(
+                session,
+                prompt,
+                this.ANALYSIS_TIMEOUT_MS,
+                'Team expertise analysis'
             );
 
             if (!response) {
@@ -198,9 +205,11 @@ export class CopilotService {
                 'hiddenStrengths, and idealChallenges.',
             ].join('\n');
 
-            const response = await session.sendAndWait(
-                { prompt },
-                60_000
+            const response = await this.sendAndWaitWithTimeoutRecovery(
+                session,
+                prompt,
+                this.FILE_EXPERT_TIMEOUT_MS,
+                'File expert analysis'
             );
 
             if (!response) {
@@ -213,9 +222,90 @@ export class CopilotService {
         }
     }
 
+    private async sendAndWaitWithTimeoutRecovery(
+        session: CopilotSessionInstance,
+        prompt: string,
+        timeoutMs: number,
+        operationName: string
+    ): Promise<AssistantMessageEvent | undefined> {
+        let latestAssistantMessage: AssistantMessageEvent | undefined;
+        const unsubscribe = session.on('assistant.message', (event) => {
+            latestAssistantMessage = event;
+        });
+
+        try {
+            return await session.sendAndWait({ prompt }, timeoutMs);
+        } catch (error) {
+            if (!this.isSessionIdleTimeoutError(error)) {
+                throw error;
+            }
+
+            this.outputChannel.appendLine(
+                `[CopilotService] ${operationName} timed out after ${Math.round(timeoutMs / 1000)}s waiting for session.idle. Attempting to recover partial response...`
+            );
+
+            try {
+                await session.abort();
+            } catch (abortError) {
+                const abortMessage = abortError instanceof Error ? abortError.message : String(abortError);
+                this.outputChannel.appendLine(
+                    `[CopilotService] Failed to abort timed-out session cleanly: ${abortMessage}`
+                );
+            }
+
+            if (latestAssistantMessage) {
+                this.outputChannel.appendLine(
+                    '[CopilotService] Recovered assistant response from timed-out session.'
+                );
+                return latestAssistantMessage;
+            }
+
+            const recovered = await this.waitForAssistantMessage(session, this.TIMEOUT_RECOVERY_WAIT_MS);
+            if (recovered) {
+                this.outputChannel.appendLine(
+                    '[CopilotService] Recovered delayed assistant response after timeout.'
+                );
+                return recovered;
+            }
+
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`${operationName} timed out with no recoverable assistant response: ${message}`);
+        } finally {
+            unsubscribe();
+        }
+    }
+
+    private async waitForAssistantMessage(
+        session: CopilotSessionInstance,
+        waitMs: number
+    ): Promise<AssistantMessageEvent | undefined> {
+        return new Promise((resolve) => {
+            let settled = false;
+            const unsubscribe = session.on('assistant.message', (event) => {
+                if (settled) { return; }
+                settled = true;
+                clearTimeout(timer);
+                unsubscribe();
+                resolve(event);
+            });
+
+            const timer = setTimeout(() => {
+                if (settled) { return; }
+                settled = true;
+                unsubscribe();
+                resolve(undefined);
+            }, waitMs);
+        });
+    }
+
+    private isSessionIdleTimeoutError(error: unknown): boolean {
+        const message = error instanceof Error ? error.message : String(error);
+        return message.includes('waiting for session.idle');
+    }
+
     // ── Session creation ───────────────────────────────────────────────
 
-    private async createAnalysisSession(tools: Tool<any>[]): Promise<InstanceType<(typeof import('@github/copilot-sdk'))['CopilotSession']>> {
+    private async createAnalysisSession(tools: Tool<any>[]): Promise<CopilotSessionInstance> {
         if (!this.client) {
             throw new Error('CopilotService is not initialized');
         }
