@@ -33,7 +33,7 @@ The Copilot agent calls these 5 tools during analysis to pull data from your rep
 |------|----------------|
 | `get_contributors` | Contributor profiles — commit counts, first/last activity dates |
 | `get_recent_commits` | Recent commit history with authors, messages, timestamps |
-| `get_file_experts` | Per-file ownership breakdown (who wrote what percentage) |
+| `get_file_experts` | Contributors who touched a file, ranked by commit count |
 | `get_repo_stats` | Repository-level stats — size, languages, age, total commits |
 | `get_collaboration_patterns` | Cross-contributor collaboration and review patterns |
 
@@ -41,20 +41,19 @@ Each tool is defined with `defineTool` and validated with Zod schemas. The agent
 
 ## Fallback Chain
 
-When you run an analysis, Team X-Ray tries providers in order:
+When you run an analysis, Team X-Ray uses this order:
 
 ```
-Copilot SDK → BYOK → GitHub Models API → Local-only
+Copilot SDK session (default or BYOK override) → GitHub Models API → Reduced local fallback
 ```
 
 | Step | Condition to activate | What happens on failure |
 |------|----------------------|------------------------|
-| Copilot SDK | CLI installed + authenticated | Falls through to BYOK |
-| BYOK | API key set via SecretStorage | Falls through to GitHub Models |
-| GitHub Models | GitHub token with `models: read` | Falls through to local-only |
-| Local-only | Always available | Returns git stats without AI prose |
+| Copilot SDK session | CLI installed + authenticated; `teamxray.aiProvider` selects default Copilot or BYOK override | Falls through to GitHub Models |
+| GitHub Models | GitHub token with `models: read` | Falls through to reduced local fallback |
+| Reduced local fallback | Always available | Returns git-derived analysis when AI output cannot be produced |
 
-Each tier catches its own errors. If Copilot SDK throws an auth error, BYOK gets a shot. If everything fails, you still get raw git statistics.
+BYOK is a Copilot session configuration, not a separate fallback tier. If the configured Copilot/BYOK session fails, Team X-Ray falls through to GitHub Models, then to the reduced local fallback.
 
 ## Bot Detection
 

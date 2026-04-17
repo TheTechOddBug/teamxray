@@ -36,7 +36,7 @@ In the current implementation, BYOK settings are applied through the Copilot SDK
 Also verify:
 - You ran `Team X-Ray: Set BYOK API Key (Secure)`
 - `teamxray.byokBaseUrl` is set
-- `teamxray.byokModel` is valid if you configured one
+- `teamxray.byokModel` is set and valid for the selected provider (required for BYOK sessions)
 
 ## BYOK returns 401 Unauthorized
 
@@ -60,7 +60,7 @@ If you're behind a corporate proxy or gateway, confirm the gateway path matches 
 
 Azure routes by **deployment name**, not model name. If you set `teamxray.byokModel` to `gpt-4o`, Azure will reject it unless your deployment happens to be named `gpt-4o`.
 
-Set `teamxray.byokModel` to your deployment name (from the Azure Portal Deployments list), or leave it unset if the deployment name is already encoded in `byokBaseUrl`.
+Set `teamxray.byokModel` to your deployment name from the Azure Portal Deployments list.
 
 ## Analysis Takes Too Long
 

@@ -220,6 +220,8 @@ export class CopilotService {
             throw new Error('CopilotService is not initialized');
         }
 
+        const config = vscode.workspace.getConfiguration('teamxray');
+        const provider = config.get<string>('aiProvider');
         const providerConfig = await this.getProviderConfig();
 
         const sessionConfig: SessionConfig = {
@@ -235,15 +237,22 @@ export class CopilotService {
 
         if (providerConfig) {
             sessionConfig.provider = providerConfig;
-        }
-
-        const config = vscode.workspace.getConfiguration('teamxray');
-        const model = config.get<string>('byokModel');
-        if (model) {
+            const model = config.get<string>('byokModel')?.trim();
+            if (!model) {
+                throw new Error(
+                    `BYOK provider "${provider}" requires teamxray.byokModel. Set it in VS Code settings.`
+                );
+            }
             sessionConfig.model = model;
         }
 
-        return this.client.createSession(sessionConfig);
+        try {
+            return this.client.createSession(sessionConfig);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const providerLabel = providerConfig ? ` with BYOK provider "${provider}"` : '';
+            throw new Error(`Failed to create Copilot session${providerLabel}: ${message}`);
+        }
     }
 
     // ── BYOK provider config ──────────────────────────────────────────

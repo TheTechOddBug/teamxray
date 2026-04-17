@@ -5,7 +5,7 @@ Team X-Ray analyzes local git data and then chooses the AI path that the current
 | Mode | Setting value | What it does | Requirements |
 |------|---------------|--------------|--------------|
 | Copilot SDK | `copilot` | Default analysis path with custom tools over local repo data | Copilot CLI installed + authenticated; set `teamxray.cliPath` if needed |
-| BYOK via Copilot SDK | `byok-openai`, `byok-anthropic`, `byok-azure` | Applies a provider override to the Copilot SDK session | Copilot CLI, `Team X-Ray: Set BYOK API Key (Secure)`, `teamxray.byokBaseUrl`, optional `teamxray.byokModel` |
+| BYOK via Copilot SDK | `byok-openai`, `byok-anthropic`, `byok-azure` | Applies a provider override to the Copilot SDK session | Copilot CLI, `Team X-Ray: Set BYOK API Key (Secure)`, `teamxray.byokBaseUrl`, `teamxray.byokModel` |
 | GitHub Models fallback | `github-models` | Uses your GitHub token when Copilot is unavailable or analysis falls back | `Team X-Ray: Set GitHub Token` |
 | Reduced local fallback | — | Builds a basic git-derived analysis if AI output fails | No extra setup |
 
@@ -32,7 +32,7 @@ BYOK (Bring Your Own Key) lets you point the Copilot SDK session at a different 
 
 ### Important: Copilot CLI is still required
 
-BYOK is wired through the Copilot SDK session, not as a standalone provider path. The Copilot CLI must be installed and authenticated even when `teamxray.aiProvider` is set to a `byok-*` value. Your API key and baseUrl override the model the SDK talks to; the session orchestration is still Copilot's.
+BYOK is wired through the Copilot SDK session, not as a standalone provider path. The Copilot CLI must be installed and authenticated even when `teamxray.aiProvider` is set to a `byok-*` value. Your API key, baseUrl, and `teamxray.byokModel` override the model the SDK talks to; the session orchestration is still Copilot's.
 
 If this changes in a future version, this note will be removed.
 
@@ -65,7 +65,7 @@ Azure URLs include the resource name and deployment name. Get them from the Azur
 | `teamxray.aiProvider` | yes | Set to `byok-openai`, `byok-anthropic`, or `byok-azure` |
 | API key (SecretStorage) | yes | Set via `Team X-Ray: Set BYOK API Key (Secure)`, not in JSON settings |
 | `teamxray.byokBaseUrl` | yes | Full endpoint URL. See table above |
-| `teamxray.byokModel` | optional | Model identifier. Examples: `gpt-4o`, `claude-sonnet-4-5-20250929`, your Azure deployment name |
+| `teamxray.byokModel` | yes | Model identifier. Examples: `gpt-4o`, `claude-sonnet-4-5-20250929`, your Azure deployment name |
 
 ### Migrating from `teamxray.byokApiKey`
 

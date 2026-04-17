@@ -28,7 +28,7 @@ Team X-Ray reads your local git history — commits, contributors, file ownershi
 | Flow | Mode | Requirements |
 |------|------|--------------|
 | 1 | **Copilot SDK (`copilot`)** | Copilot CLI installed + authenticated; set `teamxray.cliPath` if the CLI is not on your PATH |
-| 2 | **BYOK via Copilot SDK** | `teamxray.aiProvider` = `byok-openai`, `byok-anthropic`, or `byok-azure`; run `Team X-Ray: Set BYOK API Key (Secure)`; set `teamxray.byokBaseUrl` |
+| 2 | **BYOK via Copilot SDK** | `teamxray.aiProvider` = `byok-openai`, `byok-anthropic`, or `byok-azure`; run `Team X-Ray: Set BYOK API Key (Secure)`; set `teamxray.byokBaseUrl` and `teamxray.byokModel` |
 | 3 | **GitHub Models fallback** | Run `Team X-Ray: Set GitHub Token` |
 | 4 | **Reduced local fallback** | No extra setup; basic git-derived analysis only if AI output cannot be produced |
 

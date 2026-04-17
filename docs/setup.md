@@ -61,5 +61,5 @@ There is no separate "local-only" provider to configure in the normal success pa
 |---------|-------------|---------|
 | `teamxray.aiProvider` | Provider setting: `copilot`, `byok-openai`, `byok-anthropic`, `byok-azure`, `github-models` | `copilot` |
 | `teamxray.cliPath` | Path to the Copilot CLI executable when it is not available on your PATH | auto-detect |
-| `teamxray.byokModel` | Model override for BYOK providers (e.g. `gpt-4o`, `claude-sonnet-4-5-20250929`) | — |
+| `teamxray.byokModel` | Required model override for BYOK providers (e.g. `gpt-4o`, `claude-sonnet-4-5-20250929`) | — |
 | `teamxray.byokBaseUrl` | Custom API endpoint for BYOK (useful for proxies or Azure deployments) | — |

@@ -386,7 +386,8 @@ export class ExpertiseAnalyzer {
                 const repoData = this.toRepositoryData(repositoryData, repoStats);
                 return await this.copilotService.analyzeTeam(repoData, repoStats);
             } catch (error) {
-                this.outputChannel.appendLine(`⚠️ Copilot SDK analysis failed, falling back to GitHub Models: ${error}`);
+                const message = error instanceof Error ? error.message : String(error);
+                this.outputChannel.appendLine(`⚠️ Copilot SDK analysis failed, falling back to GitHub Models: ${message}`);
             }
         }
 
@@ -794,7 +795,8 @@ Respond with JSON only (NO markdown, NO explanations):
                         }
                     }
                 } catch (err) {
-                    this.outputChannel.appendLine(`⚠️ Copilot SDK file expert failed: ${err}`);
+                    const message = err instanceof Error ? err.message : String(err);
+                    this.outputChannel.appendLine(`⚠️ Copilot SDK file expert failed: ${message}`);
                 }
             }
 
