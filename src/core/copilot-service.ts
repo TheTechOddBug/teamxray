@@ -560,19 +560,94 @@ export class CopilotService {
      * Extract JSON from a response that may contain markdown fences or prose.
      */
     private extractJSON(text: string): string | null {
-        // Try fenced code blocks first
-        const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-        if (fenced) { return fenced[1].trim(); }
+        const candidates: string[] = [];
 
-        // Try raw JSON object
-        const objMatch = text.match(/(\{[\s\S]*\})/);
-        if (objMatch) { return objMatch[1]; }
+        // Prefer fenced blocks first.
+        const fencedMatches = text.matchAll(/```(?:json)?\s*\n?([\s\S]*?)```/gi);
+        for (const match of fencedMatches) {
+            const candidate = match[1]?.trim();
+            if (candidate) {
+                candidates.push(candidate);
+            }
+        }
 
-        // Try raw JSON array
-        const arrMatch = text.match(/(\[[\s\S]*\])/);
-        if (arrMatch) { return arrMatch[1]; }
+        // Also consider full text and balanced object/array slices.
+        const trimmed = text.trim();
+        if (trimmed) {
+            candidates.push(trimmed);
+        }
+        candidates.push(...this.extractBalancedJsonCandidates(text, '{', '}'));
+        candidates.push(...this.extractBalancedJsonCandidates(text, '[', ']'));
+
+        for (const candidate of candidates) {
+            const normalized = candidate.trim();
+            if (!normalized) {
+                continue;
+            }
+            try {
+                JSON.parse(normalized);
+                return normalized;
+            } catch {
+                // Keep trying candidate slices.
+            }
+        }
 
         return null;
+    }
+
+    private extractBalancedJsonCandidates(
+        text: string,
+        openChar: '{' | '[',
+        closeChar: '}' | ']'
+    ): string[] {
+        const candidates: string[] = [];
+        const maxCandidates = 50;
+
+        for (let start = 0; start < text.length; start++) {
+            if (text[start] !== openChar) {
+                continue;
+            }
+
+            let depth = 0;
+            let inString = false;
+            let escaped = false;
+
+            for (let end = start; end < text.length; end++) {
+                const ch = text[end];
+
+                if (inString) {
+                    if (escaped) {
+                        escaped = false;
+                    } else if (ch === '\\') {
+                        escaped = true;
+                    } else if (ch === '"') {
+                        inString = false;
+                    }
+                    continue;
+                }
+
+                if (ch === '"') {
+                    inString = true;
+                    continue;
+                }
+
+                if (ch === openChar) {
+                    depth++;
+                } else if (ch === closeChar) {
+                    depth--;
+                    if (depth === 0) {
+                        candidates.push(text.slice(start, end + 1));
+                        break;
+                    }
+                }
+            }
+
+            if (candidates.length >= maxCandidates) {
+                break;
+            }
+        }
+
+        return candidates;
     }
 
     private ensureValidDate(value: unknown, fallback: Date = new Date()): Date {

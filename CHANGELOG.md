@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-04-17
+
 ### ✨ Features
-- Added `teamxray.historyWindowDays` setting (default 90) to limit git history analysis to a recent time window. Prevents deep repos from hitting the 1000-commit cap and silently dropping recent-but-not-newest commits. Set to 0 to restore previous unbounded behavior. Falls back to full history if the window returns no commits.
+- Added `teamxray.historyWindowDays` (default `90`) and `Team X-Ray: Set History Window` presets/custom input to scope git analysis to a recent window while keeping a fallback to full history when the window yields no commits.
+- Added an immediate **Analyze Now** action after setting the history window, so users can run analysis directly from the confirmation prompt.
+
+### 🐛 Bug Fixes
+- Fixed Copilot SDK session configuration so BYOK model overrides are only applied when a BYOK provider is active, and added a clear error when `teamxray.byokModel` is missing for BYOK sessions.
+- Added Copilot SDK timeout recovery for `session.idle` waits, including session abort + partial/delayed assistant response recovery before falling back.
+- Hardened date handling for AI responses and rendering to avoid `Invalid time value` failures from malformed date fields.
+- Hardened AI JSON extraction to recover valid balanced JSON payloads from noisy/mixed assistant responses instead of dropping to git-only analysis.
+- Improved Copilot SDK failure logging for team and file analysis paths to surface useful error messages.
+
+### 📖 Documentation
+- Updated README and provider docs to reflect required BYOK model configuration and current fallback behavior.
+- Corrected architecture docs to match the actual provider flow and tool behavior.
+
+### 🔧 Infrastructure
+- Migrated MCP config location from `.vscode/mcp.json` to `.mcp.json`.
 
 ## [2.0.4] - 2026-04-16
 
