@@ -133,13 +133,26 @@ export class ExpertiseWebviewProvider {
      * Safely formats a date that might be a Date object or string
      */
     private safeFormatDate(date: any): string {
-        if (!date) return 'Unknown';
+        if (!date) {
+            return 'Unknown';
+        }
         try {
             const d = date instanceof Date ? date : new Date(date);
+            if (isNaN(d.getTime())) {
+                return 'Unknown';
+            }
             return d.toLocaleDateString();
         } catch {
             return 'Unknown';
         }
+    }
+
+    private toSafeIsoDate(date: any): string {
+        if (!date) {
+            return '';
+        }
+        const d = date instanceof Date ? date : new Date(date);
+        return isNaN(d.getTime()) ? '' : d.toISOString();
     }
 
     /**
@@ -938,7 +951,7 @@ export class ExpertiseWebviewProvider {
                 </thead>
                 <tbody>
                     ${analysis.expertProfiles.map(expert => `
-                    <tr data-name="${(expert.name || '').replace(/"/g, '&quot;')}" data-email="${(expert.email || '').replace(/"/g, '&quot;')}" data-expertise="${expert.expertise}" data-contributions="${expert.contributions}" data-lastcommit="${expert.lastCommit instanceof Date ? expert.lastCommit.toISOString() : expert.lastCommit || ''}" data-specs="${(expert.specializations || []).join(', ')}">
+                    <tr data-name="${(expert.name || '').replace(/"/g, '&quot;')}" data-email="${(expert.email || '').replace(/"/g, '&quot;')}" data-expertise="${expert.expertise}" data-contributions="${expert.contributions}" data-lastcommit="${this.toSafeIsoDate(expert.lastCommit)}" data-specs="${(expert.specializations || []).join(', ')}">
                         <td>${expert.isBot ? '🤖 ' : ''}${expert.name}${expert.teamRole ? ` <span class="role-badge">${expert.teamRole}</span>` : ''}</td>
                         <td class="email-cell">${expert.email}</td>
                         <td><div class="mini-bar"><div class="mini-bar-fill" style="width:${expert.expertise}%"></div></div> ${expert.expertise}%</td>

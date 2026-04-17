@@ -575,6 +575,18 @@ export class CopilotService {
         return null;
     }
 
+    private ensureValidDate(value: unknown, fallback: Date = new Date()): Date {
+        let parsed: Date;
+        if (value instanceof Date) {
+            parsed = value;
+        } else if (typeof value === 'string' || typeof value === 'number') {
+            parsed = new Date(value);
+        } else {
+            parsed = fallback;
+        }
+        return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+    }
+
     private mapToExpertiseAnalysis(
         raw: any,
         data: RepositoryData,
@@ -585,7 +597,7 @@ export class CopilotService {
             fileName: f.fileName ?? '',
             filePath: f.filePath ?? '',
             experts: (f.experts ?? []).map((e: any) => this.mapExpert(e)),
-            lastModified: new Date(f.lastModified ?? Date.now()),
+            lastModified: this.ensureValidDate(f.lastModified),
             changeFrequency: f.changeFrequency ?? 0,
         }));
         let insights: TeamInsight[] = (raw.insights ?? []).map((i: any) => {
@@ -671,7 +683,7 @@ export class CopilotService {
             isBot: detectBotContributor(e.name, e.email),
             expertise: typeof e.expertise === 'number' ? e.expertise : 50,
             contributions: e.contributions ?? 0,
-            lastCommit: new Date(e.lastCommit ?? Date.now()),
+            lastCommit: this.ensureValidDate(e.lastCommit),
             specializations: e.specializations ?? [],
             communicationStyle: e.communicationStyle ?? 'technical',
             teamRole: e.teamRole ?? 'contributor',
@@ -694,7 +706,7 @@ export class CopilotService {
             isBot: detectBotContributor(c.name, c.email),
             expertise: Math.min(100, (c.commits / (stats.totalCommits || 1)) * 100),
             contributions: c.commits,
-            lastCommit: new Date(c.lastCommit),
+            lastCommit: this.ensureValidDate(c.lastCommit),
             specializations: [],
             communicationStyle: 'technical',
             teamRole: 'contributor',
